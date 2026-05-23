@@ -1,0 +1,50 @@
+name: Autograding Tests
+'on':
+- push
+- repository_dispatch
+permissions:
+  checks: write
+  actions: read
+  contents: read
+jobs:
+  run-autograding-tests:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-classroom[bot]'
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping: 1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - name: Install dependencies
+      run: npm install
+    - name: Create env file
+      run: |
+        echo "MONGO_URI=mongodb://localhost:27017/taskmanager_test" > .env
+        echo "JWT_SECRET=testsecretkey123" >> .env
+    - name: Run Backend Tests
+      id: run-backend-tests
+      uses: classroom-resources/autograding-command-grader@v1
+      with:
+        test-name: Run Backend Tests
+        setup-command: ''
+        command: npm test
+        timeout: 10
+        max-score: 100
+    - name: Autograding Reporter
+      uses: classroom-resources/autograding-grading-reporter@v1
+      env:
+        RUN-BACKEND-TESTS_RESULTS: "${{steps.run-backend-tests.outputs.result}}"
+      with:
+        runners: run-backend-tests
